@@ -8,6 +8,9 @@ const DrawingCanvas = () => {
   const [startPoint, setStartPoint] = useState({ x: 0, y: 0 });
   const [endPoint, setEndPoint] = useState({ x: 0, y: 0 });
   const [points, setPoints] = useState([]);
+  const [selectedShape, setSelectedShape] = useState(null);
+  const [text, setText] = useState(""); // State to store text input
+  const [textPosition, setTextPosition] = useState({ x: 0, y: 0 }); // State to store text position
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -37,7 +40,7 @@ const DrawingCanvas = () => {
   const finishDrawing = () => {
     if (!drawMode) return;
     setIsDrawing(false);
-    if (drawMode !== "highlight") {
+    if (drawMode !== "highlight" && drawMode !== "text") {
       const newShape = {
         type: drawMode,
         start: { ...startPoint },
@@ -45,13 +48,21 @@ const DrawingCanvas = () => {
         points: [...points],
       };
       setShapes([...shapes, newShape]);
-    } else {
+    } else if (drawMode === "highlight") {
       const newHighlight = {
         type: drawMode,
         start: { ...startPoint },
         end: { ...endPoint },
       };
       setShapes([...shapes, newHighlight]);
+    } else if (drawMode === "text") {
+      const newText = {
+        type: drawMode,
+        text,
+        position: { ...textPosition },
+      };
+      setShapes([...shapes, newText]);
+      setText("");
     }
     setPoints([]);
   };
@@ -63,8 +74,8 @@ const DrawingCanvas = () => {
     const context = canvas.getContext("2d");
 
     context.clearRect(0, 0, canvas.width, canvas.height);
-
-    shapes.forEach((shape) => {
+    shapes.forEach((shape, index) => {
+      if (!shape.start || selectedShape === index) return;
       if (shape.type === "rectangle") {
         context.fillStyle = "rgba(255, 0, 0, 0.2)";
         const width = shape.end.x - shape.start.x;
@@ -83,7 +94,16 @@ const DrawingCanvas = () => {
         const width = shape.end.x - shape.start.x;
         const height = shape.end.y - shape.start.y;
         context.fillRect(shape.start.x, shape.start.y, width, height);
-        // context.fillRect(shape.start.x, shape.start.y, width, height);
+      } else if (shape.type === "text") {
+        context.fillStyle = "rgba(255, 255, 0, 0.5)";
+        const width = shape.end.x - shape.start.x;
+        const height = shape.end.y - shape.start.y;
+        context.beginPath();
+        context.rect(shape.start.x, shape.start.y, width, height);
+        context.stroke();
+        context.fill();
+        context.font = "16px Arial";
+        context.fillText(shape.text, shape.end.y - shape.start.x);
       } else if (shape.type === "freehand") {
         context.beginPath();
         context.moveTo(shape.points[0].x, shape.points[0].y);
@@ -108,6 +128,16 @@ const DrawingCanvas = () => {
         const width = endPoint.x - startPoint.x;
         const height = endPoint.y - startPoint.y;
         context.fillRect(startPoint.x, startPoint.y, width, height);
+      } else if (drawMode === "text") {
+        context.fillStyle = "rgba(255, 255, 0, 0.5)"; // Yellow highlight color
+        const width = endPoint.x - startPoint.x;
+        const height = endPoint.y - startPoint.y;
+        context.beginPath();
+        context.rect(startPoint.x, startPoint.y, width, height);
+        context.stroke();
+        context.fill();
+        context.font = "16px Arial";
+        context.fillText(text, endPoint.position.x, startPoint.position.y);
       } else if (drawMode === "line") {
         context.beginPath();
         context.moveTo(startPoint.x, startPoint.y);
@@ -122,10 +152,55 @@ const DrawingCanvas = () => {
         context.stroke();
       }
     }
-  }, [isDrawing, drawMode, shapes, startPoint, endPoint, points]);
+  }, [
+    isDrawing,
+    drawMode,
+    shapes,
+    startPoint,
+    endPoint,
+    points,
+    text,
+    selectedShape,
+    textPosition,
+  ]);
 
   const handleDrawButtonClick = (mode) => {
     setDrawMode(mode);
+  };
+
+  const handleClearCanvas = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas.getContext("2d");
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    setShapes([]); // Clear all shapes
+  };
+
+  const handleDeleteAnyDraw = () => {
+    const remainingShapes = shapes.filter((shape) => {
+      return !(
+        shape.type === "rectangle" ||
+        shape.type === "line" ||
+        shape.type === "highlight" ||
+        shape.type === "freehand" ||
+        shape.type === "text"
+      );
+    });
+    setShapes(remainingShapes); // Update the state with the remaining shapes
+  };
+
+  const handleSelectShape = (index) => {
+    setSelectedShape(index);
+  };
+
+  // const handleCanvasClick = (event) => {
+  //   const { offsetX, offsetY } = event.nativeEvent;
+  //   setTextPosition({ x: offsetX, y: offsetY });
+  // };
+  const handleCanvasClick = (event) => {
+    const { offsetX, offsetY } = event.nativeEvent;
+    if (drawMode === "text") {
+      setTextPosition({ x: offsetX, y: offsetY });
+    }
   };
 
   return (
@@ -141,6 +216,9 @@ const DrawingCanvas = () => {
         <button onClick={() => handleDrawButtonClick("freehand")}>
           Freehand Draw
         </button>
+        <button onClick={() => handleDrawButtonClick("text")}>Add Text</button>
+        <button onClick={handleClearCanvas}>Clear</button>
+        <button onClick={handleDeleteAnyDraw}>Selected Delete</button>
       </div>
       <div>
         <canvas
@@ -151,7 +229,36 @@ const DrawingCanvas = () => {
           onMouseDown={startDrawing}
           onMouseUp={finishDrawing}
           onMouseMove={continueDrawing}
+          onClick={handleCanvasClick}
         />
+      </div>
+      <div>
+        {shapes.map((shape, index) => (
+          <div
+            key={index}
+            contentEditable
+            style={{
+              position: "absolute",
+              top: shape.start ? shape.start.y : 0,
+              left: shape.start ? shape.start.x : 0,
+              width: shape.end ? shape.end.x - shape.start.x : 0,
+              height: shape.end ? shape.end.x - shape.start.x : 0,
+              border: "1px solid transparent", // Invisible border
+              pointerEvents: "auto", // Enable mouse events
+              overflow: "hidden", // Prevent text overflow
+            }}
+          >
+            {shape.type === "text" ? shape.text : null}
+          </div>
+        ))}
+        <h3>Shapes:</h3>
+        <ul>
+          {shapes.map((shape, index) => (
+            <li key={index} onClick={() => handleSelectShape(index)}>
+              {shape.type} - Click to select
+            </li>
+          ))}
+        </ul>
       </div>
     </>
   );
