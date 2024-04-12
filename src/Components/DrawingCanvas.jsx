@@ -2,15 +2,27 @@ import { useRef, useEffect, useState } from "react";
 
 const DrawingCanvas = () => {
   const canvasRef = useRef(null);
-
   const [isDrawing, setIsDrawing] = useState(false);
-  const [drawMode, setDrawMode] = useState("freehand");
+  const [drawMode, setDrawMode] = useState(false);
   const [shapes, setShapes] = useState([]);
   const [startPoint, setStartPoint] = useState({ x: 0, y: 0 });
   const [endPoint, setEndPoint] = useState({ x: 0, y: 0 });
   const [points, setPoints] = useState([]);
   const [textPosition, setTextPosition] = useState({ x: 0, y: 0 });
   const [text, setText] = useState("");
+  const ctxRef = useRef(null);
+  const [scale, setScale] = useState(1);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const [elements, setElements] = useState([
+    {
+      x: 50,
+      y: 50,
+      width: 100,
+      height: 100,
+      isSelected: false,
+    },
+    // Add more elements if needed
+  ]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -142,6 +154,60 @@ const DrawingCanvas = () => {
     textPosition,
   ]);
 
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    ctxRef.current = canvas.getContext("2d");
+    const ctx = ctxRef.current;
+
+    const drawElement = () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.scale(scale, scale);
+      ctx.translate(offset.x, offset.y);
+      elements.forEach((el) => {
+        ctx.fillStyle = el.isSelected ? "blue" : "red"; // Change color if selected
+        ctx.fillRect(el.x, el.y, el.width, el.height);
+      });
+      ctx.restore();
+    };
+
+    const checkSelection = (mouseX, mouseY) => {
+      elements.forEach((el) => {
+        el.isSelected = false; // Deselect all elements first
+        if (
+          mouseX >= el.x &&
+          mouseX <= el.x + el.width &&
+          mouseY >= el.y &&
+          mouseY <= el.y + el.height
+        ) {
+          el.isSelected = true;
+        }
+      });
+    };
+
+    const mousedown = (e) => {
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      checkSelection(mouseX, mouseY);
+      drawElement();
+
+      // Add your existing mousemove and mouseup logic here
+    };
+
+    // Add your existing mousemove and mouseup event listeners here
+
+    canvas.addEventListener("mousedown", mousedown);
+
+    drawElement();
+
+    return () => {
+      canvas.removeEventListener("mousedown", mousedown);
+      // Remove your existing event listeners here
+    };
+  }, [elements, scale, offset]);
+
   const handleDrawButtonClick = (mode) => {
     setDrawMode(mode);
   };
@@ -176,6 +242,20 @@ const DrawingCanvas = () => {
     setText(event.target.value);
   };
 
+  const deleteSelectedElement = () => {
+    const updatedElements = elements.filter((el) => !el.isSelected);
+    setElements(updatedElements);
+  };
+
+  const resetCanvas = () => {
+    setScale(1);
+    setOffset({ x: 0, y: 0 });
+  };
+
+  const handleZoomIn = () => setScale(scale * 1.1);
+
+  const handleZoomOut = () => setScale(scale / 1.1);
+
   return (
     <>
       <div>
@@ -198,6 +278,10 @@ const DrawingCanvas = () => {
         />
         <button onClick={handleClearCanvas}>Clear</button>
         <button onClick={handleDeleteAnyDraw}>Selected Delete</button>
+        <button onClick={resetCanvas}>Reset Zoom</button>
+        <button onClick={handleZoomIn}>Zoom In</button>
+        <button onClick={handleZoomOut}>Zoom Out</button>
+        <button onClick={deleteSelectedElement}>Delete</button>
       </div>
       <div>
         <canvas
