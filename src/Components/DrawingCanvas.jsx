@@ -9,7 +9,6 @@ const DrawingCanvas = () => {
   const [endPoint, setEndPoint] = useState({ x: 0, y: 0 });
   const [points, setPoints] = useState([]);
   const [textPosition, setTextPosition] = useState({ x: 0, y: 0 });
-  const [text, setText] = useState("");
 
   const ctxRef = useRef(null);
   const isResizingRef = useRef(false);
@@ -30,6 +29,9 @@ const DrawingCanvas = () => {
     },
     // Add more elements if needed
   ]);
+  const [rectangles, setRectangles] = useState([]);
+  const [resizingRectIndex, setResizingRectIndex] = useState(null);
+  const [resizeDirection, setResizeDirection] = useState(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -39,7 +41,16 @@ const DrawingCanvas = () => {
     context.lineWidth = 2; // Default line width
     context.lineCap = "round"; // Rounded line ends
     context.lineJoin = "round"; // Rounded line corners
-  }, []);
+
+    context.fillStyle = "rgba(255, 0, 0, 0.2)"; // Fill color with transparency
+
+    // Event listener for double-click on canvas
+    canvas.addEventListener("dblclick", handleDoubleClick);
+
+    return () => {
+      canvas.removeEventListener("dblclick", handleDoubleClick);
+    };
+  }, [rectangles]);
 
   const startDrawing = (event) => {
     if (!drawMode) return;
@@ -237,7 +248,7 @@ const DrawingCanvas = () => {
       }
     });
 
-    if (isDrawing && drawMode !== "text") {
+    if (isDrawing) {
       if (drawMode === "rectangle") {
         context.fillStyle = "rgba(255, 0, 0, 0.2)";
         const width = endPoint.x - startPoint.x;
@@ -264,28 +275,15 @@ const DrawingCanvas = () => {
         }
         context.stroke();
       }
-    } else if (drawMode === "text") {
-      context.font = "16px Arial";
-      context.fillStyle = "black";
-      context.fillText(text, textPosition.x, textPosition.y);
-      context.strokeStyle = "black";
-      context.lineWidth = 1;
-      context.strokeText(text, textPosition.x, textPosition.y);
     }
-  }, [
-    isDrawing,
-    drawMode,
-    shapes,
-    startPoint,
-    endPoint,
-    points,
-    text,
-    textPosition,
-  ]);
+  }, [isDrawing, drawMode, shapes, startPoint, endPoint, points, textPosition]);
 
   const handleDrawButtonClick = (mode) => {
-    setDrawMode(mode);
+    setDrawMode(mode === drawMode ? false : mode);
   };
+  // const handleDrawButtonClick = () => {
+  //   setDrawMode(!drawMode);
+  // };
 
   const handleClearCanvas = () => {
     const canvas = canvasRef.current;
@@ -294,16 +292,39 @@ const DrawingCanvas = () => {
     setShapes([]); // Clear all shapes
   };
 
-  const handleDeleteAnyDraw = () => {
-    const remainingShapes = shapes.filter((shape) => {
-      return !(
-        shape.type === "rectangle" ||
-        shape.type === "line" ||
-        shape.type === "highlight" ||
-        shape.type === "freehand"
+  // const handleCanvasClick = (event) => {
+  //   const { offsetX, offsetY } = event.nativeEvent;
+  //   if (drawMode === "text") {
+  //     setTextPosition({ x: offsetX, y: offsetY });
+  //   }
+  // };
+  const handleDoubleClick = (event) => {
+    const { offsetX, offsetY } = event;
+
+    // Find if double-click occurred within any existing rectangle
+    const clickedRectangle = rectangles.find((rect) => {
+      return (
+        offsetX >= rect.start.x &&
+        offsetX <= rect.end.x &&
+        offsetY >= rect.start.y &&
+        offsetY <= rect.end.y
       );
     });
-    setShapes(remainingShapes); // Update the state with the remaining shapes
+
+    // If a rectangle is found, allow adding text
+    if (clickedRectangle) {
+      const newText = prompt("Enter text:");
+      if (newText !== null) {
+        setRectangles((prevRectangles) => {
+          return prevRectangles.map((rect) => {
+            if (rect === clickedRectangle) {
+              return { ...rect, text: newText };
+            }
+            return rect;
+          });
+        });
+      }
+    }
   };
 
   const handleCanvasClick = (event) => {
@@ -311,10 +332,72 @@ const DrawingCanvas = () => {
     if (drawMode === "text") {
       setTextPosition({ x: offsetX, y: offsetY });
     }
-  };
 
-  const handleTextInput = (event) => {
-    setText(event.target.value);
+    if (drawMode) {
+      const { offsetX, offsetY } = event.nativeEvent;
+      const newRectangle = {
+        start: { x: offsetX, y: offsetY },
+        end: { x: offsetX + 100, y: offsetY + 50 },
+        text: "",
+      };
+      setRectangles([...rectangles, newRectangle]);
+    } else {
+      // Check if resizing rectangle
+      const { offsetX, offsetY } = event.nativeEvent;
+      const clickedRectangleIndex = rectangles.findIndex((rect) => {
+        return (
+          offsetX >= rect.start.x &&
+          offsetX <= rect.end.x &&
+          offsetY >= rect.start.y &&
+          offsetY <= rect.end.y
+        );
+      });
+      if (clickedRectangleIndex !== -1) {
+        setResizingRectIndex(clickedRectangleIndex);
+        // Determine resize direction
+        const clickedRect = rectangles[clickedRectangleIndex];
+        const { x, y } = clickedRect.start;
+        const { end } = clickedRect;
+        const rectWidth = end.x - x;
+        const rectHeight = end.y - y;
+        if (
+          offsetX >= x + rectWidth - 5 &&
+          offsetX <= x + rectWidth + 5 &&
+          offsetY >= y + rectHeight - 5 &&
+          offsetY <= y + rectHeight + 5
+        ) {
+          setResizeDirection("bottomRight");
+        } else {
+          setResizeDirection(null);
+        }
+      } else {
+        setResizingRectIndex(null);
+        setResizeDirection(null);
+      }
+    }
+  };
+  const handleMouseMove = (event) => {
+    if (resizingRectIndex !== null && resizeDirection) {
+      const { offsetX, offsetY } = event.nativeEvent;
+      setRectangles((prevRectangles) => {
+        const updatedRectangles = [...prevRectangles];
+        const clickedRect = updatedRectangles[resizingRectIndex];
+        const { end } = clickedRect;
+        switch (resizeDirection) {
+          case "bottomRight":
+            end.x = offsetX;
+            end.y = offsetY;
+            break;
+          default:
+            break;
+        }
+        return updatedRectangles;
+      });
+    }
+  };
+  const handleMouseUp = () => {
+    setResizingRectIndex(null);
+    setResizeDirection(null);
   };
 
   const deleteSelectedElement = () => {
@@ -348,18 +431,13 @@ const DrawingCanvas = () => {
           Freehand Draw
         </button>
         <button onClick={() => handleDrawButtonClick("text")}>Add Text</button>
-        <input
-          type="text"
-          value={text}
-          onChange={handleTextInput}
-          placeholder="Enter text"
-        />
+
         <button onClick={handleClearCanvas}>Clear</button>
-        <button onClick={handleDeleteAnyDraw}>Selected Delete</button>
         <button onClick={resetCanvas}>Reset Zoom</button>
         <button onClick={handleZoomIn}>Zoom In</button>
         <button onClick={handleZoomOut}>Zoom Out</button>
         <button onClick={deleteSelectedElement}>Delete</button>
+        <button onClick={handleDrawButtonClick}>Text</button>
       </div>
       <div>
         <canvas
@@ -368,10 +446,28 @@ const DrawingCanvas = () => {
           height={400}
           style={{ border: "1px solid black" }}
           onMouseDown={startDrawing}
-          onMouseUp={finishDrawing}
-          onMouseMove={continueDrawing}
+          onMouseUp={finishDrawing || handleMouseUp}
+          onMouseMove={continueDrawing || handleMouseMove}
           onClick={handleCanvasClick}
         />
+        {rectangles.map((rect, index) => (
+          <div
+            key={index}
+            contentEditable
+            style={{
+              position: "absolute",
+              top: rect.start.y,
+              left: rect.start.x,
+              width: rect.end.x - rect.start.x,
+              height: rect.end.y - rect.start.y,
+              border: "2px solid black", // Invisible border
+              pointerEvents: "auto", // Enable mouse events
+              overflow: "hidden", // Prevent text overflow
+            }}
+          >
+            {rect.text}
+          </div>
+        ))}
       </div>
     </>
   );
