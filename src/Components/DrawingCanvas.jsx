@@ -329,12 +329,17 @@ const DrawingCanvas = () => {
 
   const handleCanvasClick = (event) => {
     const { offsetX, offsetY } = event.nativeEvent;
+
     if (drawMode === "text") {
       setTextPosition({ x: offsetX, y: offsetY });
-    }
-
-    if (drawMode) {
-      const { offsetX, offsetY } = event.nativeEvent;
+      const newRectangle = {
+        start: { x: offsetX, y: offsetY },
+        end: { x: offsetX + 100, y: offsetY + 50 },
+        text: "",
+      };
+      setRectangles([...rectangles, newRectangle]);
+    } else if (drawMode) {
+      // Handle other drawing modes here
       const newRectangle = {
         start: { x: offsetX, y: offsetY },
         end: { x: offsetX + 100, y: offsetY + 50 },
@@ -343,7 +348,6 @@ const DrawingCanvas = () => {
       setRectangles([...rectangles, newRectangle]);
     } else {
       // Check if resizing rectangle
-      const { offsetX, offsetY } = event.nativeEvent;
       const clickedRectangleIndex = rectangles.findIndex((rect) => {
         return (
           offsetX >= rect.start.x &&
@@ -376,6 +380,7 @@ const DrawingCanvas = () => {
       }
     }
   };
+
   const handleMouseMove = (event) => {
     if (resizingRectIndex !== null && resizeDirection) {
       const { offsetX, offsetY } = event.nativeEvent;
@@ -437,7 +442,10 @@ const DrawingCanvas = () => {
         <button onClick={handleZoomIn}>Zoom In</button>
         <button onClick={handleZoomOut}>Zoom Out</button>
         <button onClick={deleteSelectedElement}>Delete</button>
-        <button onClick={handleDrawButtonClick}>Text</button>
+        <button onClick={handleDrawButtonClick}>
+          {" "}
+          {drawMode ? "Disable Text" : "Enable Text"}
+        </button>
       </div>
       <div>
         <canvas
