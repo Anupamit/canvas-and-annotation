@@ -1,5 +1,15 @@
 import { useRef, useEffect, useState } from "react";
-
+import { CiZoomIn } from "react-icons/ci";
+import { CiZoomOut } from "react-icons/ci";
+import { MdDelete } from "react-icons/md";
+import { LuRectangleHorizontal } from "react-icons/lu";
+import { CiViewTimeline } from "react-icons/ci";
+import { FaGripLines } from "react-icons/fa";
+import { FaOpenid } from "react-icons/fa6";
+import { FaHighlighter } from "react-icons/fa6";
+import { LuTimerReset } from "react-icons/lu";
+import { AiOutlineClear } from "react-icons/ai";
+// import "./Drawing.css";
 const DrawingCanvas = () => {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -424,29 +434,42 @@ const DrawingCanvas = () => {
 
   return (
     <>
-      <div>
-        <button onClick={() => handleDrawButtonClick("rectangle")}>
-          Draw Rectangle
+      <div className="button-container">
+        <button
+          onClick={() => handleDrawButtonClick("rectangle")}
+          data-name="Rectangle"
+        >
+          <LuRectangleHorizontal />
         </button>
-        <button onClick={() => handleDrawButtonClick("line")}>Draw Line</button>
+        <button onClick={() => handleDrawButtonClick("line")}>
+          <FaGripLines />
+        </button>
         <button onClick={() => handleDrawButtonClick("highlight")}>
-          Highlight
+          <FaHighlighter />
         </button>
         <button onClick={() => handleDrawButtonClick("freehand")}>
-          Freehand Draw
+          <FaOpenid />
         </button>
-        <button onClick={() => handleDrawButtonClick("text")}>Add Text</button>
-
-        <button onClick={handleClearCanvas}>Clear</button>
-        <button onClick={resetCanvas}>Reset Zoom</button>
-        <button onClick={handleZoomIn}>Zoom In</button>
-        <button onClick={handleZoomOut}>Zoom Out</button>
-        <button onClick={deleteSelectedElement}>Delete</button>
         <button onClick={handleDrawButtonClick}>
-          {" "}
-          {drawMode ? "Disable Text" : "Enable Text"}
+          <CiViewTimeline />
+        </button>
+        <button onClick={resetCanvas}>
+          <LuTimerReset />
+        </button>
+        <button onClick={handleZoomIn}>
+          <CiZoomIn />
+        </button>
+        <button onClick={handleZoomOut}>
+          <CiZoomOut />
+        </button>
+        <button onClick={handleClearCanvas}>
+          <AiOutlineClear />
+        </button>
+        <button onClick={deleteSelectedElement}>
+          <MdDelete />
         </button>
       </div>
+
       <div>
         <canvas
           ref={canvasRef}

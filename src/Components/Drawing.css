@@ -1,0 +1,29 @@
+canvas {
+    display: block;
+    margin: 0 auto;
+    border: 1px solid black;
+  }
+  .button-container {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 20px; /* Adjust as needed */
+  }
+  
+  .button-container button {
+    margin: 0 10px; /* Adjust spacing between buttons */
+    padding: 10px 20px; /* Increase button padding */
+    font-size: 16px; /* Increase font size */
+    border: 2px solid #110d47; /* Add border */
+    background-color: #090a3f; /* Add background color */
+    color: white; /* Set text color */
+    border-radius: 5px; /* Add border radius */
+    cursor: pointer; /* Change cursor to pointer on hover */
+    transition: all 0.3s ease; /* Add transition effect */
+  }
+  
+  .button-container button:hover {
+    background-color: #090a3f; /* Darken background color on hover */
+    border-color: #090a3f; /* Darken border color on hover */
+  }
+    
+  
