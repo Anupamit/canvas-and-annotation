@@ -1,60 +1,40 @@
 import { useRef, useEffect, useState } from "react";
-import { CiZoomIn } from "react-icons/ci";
-import { CiZoomOut } from "react-icons/ci";
+import { CiViewTimeline } from "react-icons/ci";
 import { MdDelete } from "react-icons/md";
 import { LuRectangleHorizontal } from "react-icons/lu";
-import { CiViewTimeline } from "react-icons/ci";
-import { FaGripLines } from "react-icons/fa";
-import { FaOpenid } from "react-icons/fa6";
-import { FaHighlighter } from "react-icons/fa6";
-import { LuTimerReset } from "react-icons/lu";
+import { FaGripLines, FaOpenid, FaHighlighter } from "react-icons/fa";
 import { AiOutlineClear } from "react-icons/ai";
-// import "./Drawing.css";
+
 const DrawingCanvas = () => {
   const canvasRef = useRef(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [drawMode, setDrawMode] = useState(false);
+  const [drawMode, setDrawMode] = useState(null);
   const [shapes, setShapes] = useState([]);
   const [startPoint, setStartPoint] = useState({ x: 0, y: 0 });
   const [endPoint, setEndPoint] = useState({ x: 0, y: 0 });
   const [points, setPoints] = useState([]);
   const [textPosition, setTextPosition] = useState({ x: 0, y: 0 });
-
   const ctxRef = useRef(null);
-  const isResizingRef = useRef(false);
-  const currentResizerRef = useRef(null);
-  const prevXRef = useRef(0);
-  const prevYRef = useRef(0);
-  const [selectedElementIndex, setSelectedElementIndex] = useState(null);
-
-  const [scale, setScale] = useState(1);
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const [elements, setElements] = useState([
-    {
-      x: 50,
-      y: 50,
-      width: 100,
-      height: 100,
-      isSelected: false,
-    },
-    // Add more elements if needed
-  ]);
+  const [scale] = useState(1);
+  const [offset] = useState({ x: 0, y: 0 });
+  const [elements, setElements] = useState([]);
   const [rectangles, setRectangles] = useState([]);
   const [resizingRectIndex, setResizingRectIndex] = useState(null);
   const [resizeDirection, setResizeDirection] = useState(null);
+  const prevXRef = useRef(null);
+  const prevYRef = useRef(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const context = canvas.getContext("2d");
+    ctxRef.current = canvas.getContext("2d");
 
-    context.strokeStyle = "black"; // Default line color
-    context.lineWidth = 2; // Default line width
-    context.lineCap = "round"; // Rounded line ends
-    context.lineJoin = "round"; // Rounded line corners
+    const context = ctxRef.current;
+    context.strokeStyle = "black";
+    context.lineWidth = 2;
+    context.lineCap = "round";
+    context.lineJoin = "round";
+    context.fillStyle = "rgba(255, 0, 0, 0.2)";
 
-    context.fillStyle = "rgba(255, 0, 0, 0.2)"; // Fill color with transparency
-
-    // Event listener for double-click on canvas
     canvas.addEventListener("dblclick", handleDoubleClick);
 
     return () => {
@@ -74,7 +54,7 @@ const DrawingCanvas = () => {
     if (!drawMode || !isDrawing) return;
     const { offsetX, offsetY } = event.nativeEvent;
     setEndPoint({ x: offsetX, y: offsetY });
-    setPoints([...points, { x: offsetX, y: offsetY }]);
+    setPoints((prevPoints) => [...prevPoints, { x: offsetX, y: offsetY }]);
   };
 
   const finishDrawing = () => {
@@ -87,21 +67,20 @@ const DrawingCanvas = () => {
         end: { ...endPoint },
         points: [...points],
       };
-      setShapes([...shapes, newShape]);
+      setShapes((prevShapes) => [...prevShapes, newShape]);
     } else if (drawMode === "highlight") {
       const newHighlight = {
         type: drawMode,
         start: { ...startPoint },
         end: { ...endPoint },
       };
-      setShapes([...shapes, newHighlight]);
+      setShapes((prevShapes) => [...prevShapes, newHighlight]);
     }
     setPoints([]);
   };
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    ctxRef.current = canvas.getContext("2d");
     const ctx = ctxRef.current;
 
     const drawElement = () => {
@@ -109,19 +88,16 @@ const DrawingCanvas = () => {
       ctx.save();
       ctx.scale(scale, scale);
       ctx.translate(offset.x, offset.y);
-      elements.forEach((el, index) => {
-        ctx.fillStyle = el.isSelected ? "blue" : "red"; // Change color if selected
+      elements.forEach((el) => {
+        ctx.fillStyle = el.isSelected ? "blue" : "red";
         ctx.fillRect(el.x, el.y, el.width, el.height);
-        if (el.isSelected) {
-          setSelectedElementIndex(index);
-        }
       });
       ctx.restore();
     };
 
     const checkSelection = (mouseX, mouseY) => {
       elements.forEach((el) => {
-        el.isSelected = false; // Deselect all elements first
+        el.isSelected = false;
         if (
           mouseX >= el.x &&
           mouseX <= el.x + el.width &&
@@ -135,8 +111,8 @@ const DrawingCanvas = () => {
 
     const mousedown = (e) => {
       const rect = canvas.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
+      const mouseX = (e.clientX - rect.left) / scale - offset.x;
+      const mouseY = (e.clientY - rect.top) / scale - offset.y;
 
       checkSelection(mouseX, mouseY);
       drawElement();
@@ -144,72 +120,35 @@ const DrawingCanvas = () => {
         if (el.isSelected) {
           window.addEventListener("mousemove", mousemove);
           window.addEventListener("mouseup", mouseup);
-
-          prevXRef.current = mouseX;
-          prevYRef.current = mouseY;
         }
       });
     };
 
     const mousemove = (e) => {
       const rect = canvas.getBoundingClientRect();
-      const mouseX = e.clientX - rect.left;
-      const mouseY = e.clientY - rect.top;
+      const mouseX = (e.clientX - rect.left) / scale - offset.x;
+      const mouseY = (e.clientY - rect.top) / scale - offset.y;
 
       elements.forEach((el) => {
         if (el.isSelected) {
-          if (!isResizingRef.current) {
-            const deltaX = mouseX - prevXRef.current;
-            const deltaY = mouseY - prevYRef.current;
+          const deltaX = mouseX - (prevXRef.current || mouseX);
+          const deltaY = mouseY - (prevYRef.current || mouseY);
 
-            el.x += deltaX;
-            el.y += deltaY;
+          el.x += deltaX;
+          el.y += deltaY;
 
-            drawElement();
-          } else {
-            const deltaX = mouseX - prevXRef.current;
-            const deltaY = mouseY - prevYRef.current;
-
-            if (currentResizerRef.current.classList.contains("se")) {
-              el.width += deltaX;
-              el.height += deltaY;
-            } else if (currentResizerRef.current.classList.contains("sw")) {
-              el.width -= deltaX;
-              el.height += deltaY;
-              el.x += deltaX;
-            } else if (currentResizerRef.current.classList.contains("ne")) {
-              el.width += deltaX;
-              el.height -= deltaY;
-              el.y += deltaY;
-            } else {
-              el.width -= deltaX;
-              el.height -= deltaY;
-              el.x += deltaX;
-              el.y += deltaY;
-            }
-
-            drawElement();
-          }
-
+          drawElement();
           prevXRef.current = mouseX;
           prevYRef.current = mouseY;
         }
       });
     };
+
     const mouseup = () => {
       window.removeEventListener("mousemove", mousemove);
       window.removeEventListener("mouseup", mouseup);
-      isResizingRef.current = false;
     };
-    const resizers = document.querySelectorAll(".resizer");
-    resizers.forEach((resizer) => {
-      resizer.addEventListener("mousedown", (e) => {
-        currentResizerRef.current = e.target;
-        isResizingRef.current = true;
-        window.addEventListener("mousemove", mousemove);
-        window.addEventListener("mouseup", mouseup);
-      });
-    });
+
     canvas.addEventListener("mousedown", mousedown);
 
     drawElement();
@@ -244,7 +183,7 @@ const DrawingCanvas = () => {
         context.lineTo(shape.end.x, shape.end.y);
         context.stroke();
       } else if (shape.type === "highlight") {
-        context.fillStyle = "rgba(255, 255, 0, 0.5)"; // Yellow highlight color
+        context.fillStyle = "rgba(255, 255, 0, 0.5)";
         const width = shape.end.x - shape.start.x;
         const height = shape.end.y - shape.start.y;
         context.fillRect(shape.start.x, shape.start.y, width, height);
@@ -268,7 +207,7 @@ const DrawingCanvas = () => {
         context.stroke();
         context.fill();
       } else if (drawMode === "highlight") {
-        context.fillStyle = "rgba(255, 255, 0, 0.5)"; // Yellow highlight color
+        context.fillStyle = "rgba(255, 255, 0, 0.5)";
         const width = endPoint.x - startPoint.x;
         const height = endPoint.y - startPoint.y;
         context.fillRect(startPoint.x, startPoint.y, width, height);
@@ -289,29 +228,20 @@ const DrawingCanvas = () => {
   }, [isDrawing, drawMode, shapes, startPoint, endPoint, points, textPosition]);
 
   const handleDrawButtonClick = (mode) => {
-    setDrawMode(mode === drawMode ? false : mode);
+    setDrawMode((prevMode) => (prevMode === mode ? null : mode));
   };
-  // const handleDrawButtonClick = () => {
-  //   setDrawMode(!drawMode);
-  // };
 
   const handleClearCanvas = () => {
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    setShapes([]); // Clear all shapes
+    setShapes([]);
+    setRectangles([]); // Clear the rectangles as well
   };
 
-  // const handleCanvasClick = (event) => {
-  //   const { offsetX, offsetY } = event.nativeEvent;
-  //   if (drawMode === "text") {
-  //     setTextPosition({ x: offsetX, y: offsetY });
-  //   }
-  // };
   const handleDoubleClick = (event) => {
     const { offsetX, offsetY } = event;
 
-    // Find if double-click occurred within any existing rectangle
     const clickedRectangle = rectangles.find((rect) => {
       return (
         offsetX >= rect.start.x &&
@@ -321,7 +251,6 @@ const DrawingCanvas = () => {
       );
     });
 
-    // If a rectangle is found, allow adding text
     if (clickedRectangle) {
       const newText = prompt("Enter text:");
       if (newText !== null) {
@@ -348,46 +277,6 @@ const DrawingCanvas = () => {
         text: "",
       };
       setRectangles([...rectangles, newRectangle]);
-    } else if (drawMode) {
-      // Handle other drawing modes here
-      const newRectangle = {
-        start: { x: offsetX, y: offsetY },
-        end: { x: offsetX + 100, y: offsetY + 50 },
-        text: "",
-      };
-      setRectangles([...rectangles, newRectangle]);
-    } else {
-      // Check if resizing rectangle
-      const clickedRectangleIndex = rectangles.findIndex((rect) => {
-        return (
-          offsetX >= rect.start.x &&
-          offsetX <= rect.end.x &&
-          offsetY >= rect.start.y &&
-          offsetY <= rect.end.y
-        );
-      });
-      if (clickedRectangleIndex !== -1) {
-        setResizingRectIndex(clickedRectangleIndex);
-        // Determine resize direction
-        const clickedRect = rectangles[clickedRectangleIndex];
-        const { x, y } = clickedRect.start;
-        const { end } = clickedRect;
-        const rectWidth = end.x - x;
-        const rectHeight = end.y - y;
-        if (
-          offsetX >= x + rectWidth - 5 &&
-          offsetX <= x + rectWidth + 5 &&
-          offsetY >= y + rectHeight - 5 &&
-          offsetY <= y + rectHeight + 5
-        ) {
-          setResizeDirection("bottomRight");
-        } else {
-          setResizeDirection(null);
-        }
-      } else {
-        setResizingRectIndex(null);
-        setResizeDirection(null);
-      }
     }
   };
 
@@ -410,63 +299,118 @@ const DrawingCanvas = () => {
       });
     }
   };
+
   const handleMouseUp = () => {
     setResizingRectIndex(null);
     setResizeDirection(null);
   };
 
   const deleteSelectedElement = () => {
-    if (selectedElementIndex !== null) {
-      const updatedElements = [...elements];
-      updatedElements.splice(selectedElementIndex, 1);
-      setElements(updatedElements);
-    }
+    setElements((prevElements) => prevElements.filter((el) => !el.isSelected));
   };
 
-  const resetCanvas = () => {
-    setScale(1);
-    setOffset({ x: 0, y: 0 });
+  const cloneShapesAndRectangles = () => {
+    return {
+      shapes: JSON.parse(JSON.stringify(shapes)),
+      rectangles: JSON.parse(JSON.stringify(rectangles)),
+    };
   };
 
-  const handleZoomIn = () => setScale(scale * 1.1);
+  const drawClonedShapesOnNewCanvas = () => {
+    const clonedData = cloneShapesAndRectangles();
 
-  const handleZoomOut = () => setScale(scale / 1.1);
+    // Create a new canvas element
+    const newCanvas = document.createElement("canvas");
+    newCanvas.width = canvasRef.current.width;
+    newCanvas.height = canvasRef.current.height;
+    const newCtx = newCanvas.getContext("2d");
+
+    // Draw the cloned shapes on the new canvas
+    clonedData.shapes.forEach((shape) => {
+      if (shape.type === "rectangle") {
+        const width = shape.end.x - shape.start.x;
+        const height = shape.end.y - shape.start.y;
+        newCtx.fillStyle = "rgba(255, 0, 0, 0.2)";
+        newCtx.beginPath();
+        newCtx.rect(shape.start.x, shape.start.y, width, height);
+        newCtx.stroke();
+        newCtx.fill();
+      } else if (shape.type === "line") {
+        newCtx.beginPath();
+        newCtx.moveTo(shape.start.x, shape.start.y);
+        newCtx.lineTo(shape.end.x, shape.end.y);
+        newCtx.stroke();
+      } else if (shape.type === "highlight") {
+        newCtx.fillStyle = "rgba(255, 255, 0, 0.5)";
+        const width = shape.end.x - shape.start.x;
+        const height = shape.end.y - shape.start.y;
+        newCtx.fillRect(shape.start.x, shape.start.y, width, height);
+      } else if (shape.type === "freehand") {
+        newCtx.beginPath();
+        newCtx.moveTo(shape.points[0].x, shape.points[0].y);
+        for (let i = 1; i < shape.points.length; i++) {
+          newCtx.lineTo(shape.points[i].x, shape.points[i].y);
+        }
+        newCtx.stroke();
+      }
+    });
+
+    // Draw the cloned rectangles with text on the new canvas
+    clonedData.rectangles.forEach((rect) => {
+      const width = rect.end.x - rect.start.x;
+      const height = rect.end.y - rect.start.y;
+      newCtx.fillStyle = "rgba(255, 0, 0, 0.2)";
+      newCtx.beginPath();
+      newCtx.rect(rect.start.x, rect.start.y, width, height);
+      newCtx.stroke();
+      newCtx.fill();
+      if (rect.text) {
+        newCtx.fillStyle = "black";
+        newCtx.font = "16px Arial";
+        newCtx.fillText(rect.text, rect.start.x + 5, rect.start.y + 20);
+      }
+    });
+
+    // Append the new canvas to the document body or a specific container
+    document.body.appendChild(newCanvas);
+  };
 
   return (
     <>
       <div className="button-container">
         <button
           onClick={() => handleDrawButtonClick("rectangle")}
-          data-name="Rectangle"
+          title="Rectangle"
         >
           <LuRectangleHorizontal />
         </button>
-        <button onClick={() => handleDrawButtonClick("line")}>
+        <button onClick={() => handleDrawButtonClick("line")} title="Line">
           <FaGripLines />
         </button>
-        <button onClick={() => handleDrawButtonClick("highlight")}>
+        <button
+          onClick={() => handleDrawButtonClick("highlight")}
+          title="Highlight"
+        >
           <FaHighlighter />
         </button>
-        <button onClick={() => handleDrawButtonClick("freehand")}>
+        <button
+          onClick={() => handleDrawButtonClick("freehand")}
+          title="Freehand"
+        >
           <FaOpenid />
         </button>
-        <button onClick={handleDrawButtonClick}>
+        <button onClick={() => handleDrawButtonClick("text")} title="Text">
           <CiViewTimeline />
         </button>
-        <button onClick={resetCanvas}>
-          <LuTimerReset />
-        </button>
-        <button onClick={handleZoomIn}>
-          <CiZoomIn />
-        </button>
-        <button onClick={handleZoomOut}>
-          <CiZoomOut />
-        </button>
-        <button onClick={handleClearCanvas}>
+
+        <button onClick={handleClearCanvas} title="Clear Canvas">
           <AiOutlineClear />
         </button>
-        <button onClick={deleteSelectedElement}>
+        <button onClick={deleteSelectedElement} title="Delete Selected">
           <MdDelete />
+        </button>
+        <button onClick={drawClonedShapesOnNewCanvas} title="Copy Canvas">
+          Copy Canvas
         </button>
       </div>
 
@@ -477,8 +421,14 @@ const DrawingCanvas = () => {
           height={400}
           style={{ border: "1px solid black" }}
           onMouseDown={startDrawing}
-          onMouseUp={finishDrawing || handleMouseUp}
-          onMouseMove={continueDrawing || handleMouseMove}
+          onMouseUp={(e) => {
+            finishDrawing();
+            handleMouseUp(e);
+          }}
+          onMouseMove={(e) => {
+            continueDrawing(e);
+            handleMouseMove(e);
+          }}
           onClick={handleCanvasClick}
         />
         {rectangles.map((rect, index) => (
@@ -491,9 +441,9 @@ const DrawingCanvas = () => {
               left: rect.start.x,
               width: rect.end.x - rect.start.x,
               height: rect.end.y - rect.start.y,
-              border: "2px solid black", // Invisible border
-              pointerEvents: "auto", // Enable mouse events
-              overflow: "hidden", // Prevent text overflow
+              border: "2px solid black",
+              pointerEvents: "auto",
+              overflow: "hidden",
             }}
           >
             {rect.text}
